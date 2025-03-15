@@ -1167,6 +1167,11 @@
     }
 
     function initGame() {
+
+        gtag('event', 'game_start', {
+        'player_name': playerNameInput.value.trim() || 'אנונימי'
+    });
+
         gameState.level = 1;
         gameState.score = 0;
         gameState.timeLeft = 60;
@@ -1391,6 +1396,14 @@
         userAnswer.toLowerCase() === answer.toLowerCase()
     );
     
+    gtag('event', 'answer_question', {
+        'is_correct': isCorrect,
+        'level': gameState.level,
+        'question': gameState.currentQuestion[0], // השאלה
+        'user_answer': userAnswer, // התשובה של המשתמש
+        'correct_answers': gameState.currentQuestion[1].join(', ') // התשובות הנכונות
+    });
+
     if (isCorrect) {
         // סימון שאנחנו במעבר כדי למנוע קריאות חוזרות
         gameState.isTransitioning = true;
@@ -1428,6 +1441,13 @@
     // פונקציה לדילוג על השאלה הנוכחית
     function skipQuestion() {
     if (!gameState.isGameActive || gameState.skipsAvailable <= 0 || gameState.isTransitioning) return;
+
+    gtag('event', 'skip_question', {
+        'level': gameState.level,
+        'question': gameState.currentQuestion[0],
+        'skips_remaining': gameState.skipsAvailable - 1
+    });
+
     
     // סימון שאנחנו במעבר
     gameState.isTransitioning = true;
@@ -1487,6 +1507,11 @@
     }
 
     function levelUp() {
+    
+        gtag('event', 'level_up', {
+        'level': gameState.level + 1,
+        'score': gameState.score
+    });
     gameState.level++;
     gameState.currentQuestionIndex = 0;
     gameState.correctAnswersInLevel = 0;
@@ -1515,6 +1540,12 @@
     function endGame() {
         clearInterval(gameState.timer);
         gameState.isGameActive = false;
+
+        gtag('event', 'game_end', {
+        'score': gameState.score,
+        'level': gameState.level,
+        'time_played': 60 - gameState.timeLeft + (gameState.level - 1) * 30 // זמן משוער בשניות
+    });
         
         finalScore.textContent = gameState.score;
         finalLevel.textContent = gameState.level;
