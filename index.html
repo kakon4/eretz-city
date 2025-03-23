@@ -240,8 +240,16 @@
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             padding: 20px;
+            max-height: 500px;  /* גובה מקסימלי לטבלה */
+            overflow-y: auto;   /* אפשר גלילה אנכית */
         }
-        
+        .leaderboard thead {
+         position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 1;
+        }
+
         .leaderboard h2 {
             text-align: center;
             margin-bottom: 15px;
@@ -494,12 +502,70 @@
             .hidden-input {
                 display: none;
             }
-        }
+               /* התאמות לטבלת השיאים במובייל */
+    .leaderboard {
+        width: 95%;
+        padding: 10px;
+        margin-top: 10px;
+        max-height: 400px;
+    }
+    
+    .leaderboard th, .leaderboard td {
+        padding: 6px 4px;
+        font-size: 0.9rem;
+    }
+    
+    .leaderboard h2 {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+    }
+    
+    /* להקטין את הרוחב של עמודת הדירוג */
+    .leaderboard th:first-child, .leaderboard td:first-child {
+        width: 15%;
+        max-width: 40px;
+    }
+    
+    /* לתת יותר מקום לעמודת השם */
+    .leaderboard th:nth-child(2), .leaderboard td:nth-child(2) {
+        width: 35%;
+    }
+    #leaderboard.show-mobile {
+        display: block !important; /* מכריח הצגה רק כשיש קלאס show-mobile */
+        width: 100% !important;
+        position: fixed; 
+        top: 0;
+        left: 0;
+        height: 100%;
+        overflow-y: auto;
+        background-color: white;
+        z-index: 9999;
+        padding: 10px;
+    }
+    
+    /* מוודא שהטבלה לא חורגת מהמסך */
+    #leaderboard table {
+        width: 100%;
+    }
+    
+    /* כפתור סגירה לטבלת השיאים */
+    .close-leaderboard {
+        display: block;
+        margin: 10px auto;
+        padding: 8px 20px;
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+}
         
         /* מניעת זום כשמקלידים בתיבת טקסט */
         input, textarea {
             font-size: 16px !important;  /* מונע זום אוטומטי באייפון */
         }
+        
     </style>
 </head>
 <body>
@@ -559,22 +625,23 @@
     </div>
 
     <!-- טבלת שיאים -->
-    <div class="leaderboard" id="leaderboard" style="display: none;">
-        <h2>טבלת שיאים</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>דירוג</th>
-                    <th>שם</th>
-                    <th>ניקוד</th>
-                    <th>שלב</th>
-                </tr>
-            </thead>
-            <tbody id="leaderboardBody">
-                <!-- שורות הטבלה יתווספו כאן דינמית -->
-            </tbody>
-        </table>
-    </div>
+<div class="leaderboard" id="leaderboard" style="display: none;">
+    <h2>טבלת שיאים</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>דירוג</th>
+                <th>שם</th>
+                <th>ניקוד</th>
+                <th>שלב</th>
+            </tr>
+        </thead>
+        <tbody id="leaderboardBody">
+            <!-- שורות הטבלה יתווספו כאן דינמית -->
+        </tbody>
+    </table>
+    <button class="close-leaderboard" id="closeLeaderboard">סגור טבלה</button>
+</div>
 
     <!-- חלון סיום המשחק -->
     <div id="gameOverModal" class="modal">
@@ -1320,7 +1387,6 @@ async function displayLeaderboard() {
     
     // הצג הודעת "טוען..."
     leaderboardBody.innerHTML = '<tr><td colspan="4">טוען נתונים...</td></tr>';
-    leaderboard.style.display = 'block';
     
     try {
         // שליפת נתונים מהענן
@@ -1346,6 +1412,11 @@ async function displayLeaderboard() {
             `;
             leaderboardBody.appendChild(row);
         });
+        
+        // הצג את טבלת השיאים במכשירים ניידים, אם המשחק הסתיים
+        if (isMobileDevice() && !gameState.isGameActive) {
+            setTimeout(showLeaderboardOnMobile, 1000);
+        }
     } catch (error) {
         leaderboardBody.innerHTML = '<tr><td colspan="4">שגיאה בטעינת הנתונים. נסה שוב מאוחר יותר.</td></tr>';
     }
@@ -1722,24 +1793,24 @@ async function displayLeaderboard() {
     updateSkipButton();
 }
 
-    function endGame() {
-        clearInterval(gameState.timer);
-        gameState.isGameActive = false;
+function endGame() {
+    clearInterval(gameState.timer);
+    gameState.isGameActive = false;
 
-        gtag('event', 'game_end', {
+    gtag('event', 'game_end', {
         'score': gameState.score,
         'level': gameState.level,
         'time_played': 60 - gameState.timeLeft + (gameState.level - 1) * 30 // זמן משוער בשניות
     });
         
-        finalScore.textContent = gameState.score;
-        finalLevel.textContent = gameState.level;
-        
-        updateLeaderboard(gameState.playerName, gameState.score, gameState.level);
-        
-        gameOverModal.style.display = 'block';
-    }
-
+    finalScore.textContent = gameState.score;
+    finalLevel.textContent = gameState.level;
+    
+    updateLeaderboard(gameState.playerName, gameState.score, gameState.level);
+    
+    // הצג את מודל סיום המשחק
+    gameOverModal.style.display = 'block';
+}
     // פונקציות תמיכה במובייל
     
     // 1. יצירת המקלדת הוירטואלית והוספתה לדום
@@ -1924,6 +1995,52 @@ async function displayLeaderboard() {
         // אתחול תמיכה במכשירים ניידים
         initMobileSupport();
     });
+
+     // פונקציה להצגת טבלת השיאים במכשירים ניידים
+     function showLeaderboardOnMobile() {
+        const leaderboard = document.getElementById('leaderboard');
+        
+        // בדוק אם זה מכשיר נייד
+        if (isMobileDevice()) {
+            // הסתר את מודל סיום המשחק
+            document.getElementById('gameOverModal').style.display = 'none';
+            
+            // הוסף קלאס להצגת הטבלה במסך מלא
+            leaderboard.classList.add('show-mobile');
+            leaderboard.style.display = 'block';
+        }
+    }
+
+    // טיפול בכפתור סגירת טבלת השיאים
+    document.getElementById('closeLeaderboard').addEventListener('click', function() {
+        const leaderboard = document.getElementById('leaderboard');
+        leaderboard.classList.remove('show-mobile');
+        leaderboard.style.display = 'none';
+        
+        // חזרה למסך הפתיחה
+        document.getElementById('startScreen').style.display = 'block';
+        document.getElementById('gameScreen').style.display = 'none';
+    });
+
+    // הוסף מאזיני אירועים לכפתורים במודל סיום המשחק
+    document.getElementById('playAgainButton').addEventListener('click', function() {
+        // אחרי לחיצה על "שחק שוב", בדוק אם להציג את טבלת השיאים בנייד
+        setTimeout(function() {
+            if (isMobileDevice()) {
+                showLeaderboardOnMobile();
+            }
+        }, 500);
+    });
+
+    document.getElementById('closeModal').addEventListener('click', function() {
+        // אחרי סגירת המודל, בדוק אם להציג את טבלת השיאים בנייד
+        setTimeout(function() {
+            if (isMobileDevice()) {
+                showLeaderboardOnMobile();
+            }
+        }, 500);
+    });
+
     </script>
 </body>
 </html>
