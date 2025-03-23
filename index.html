@@ -15,6 +15,10 @@
   gtag('config', 'G-XEM0MBGW2M');
 </script>
 
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
 
     <style>
         * {
@@ -377,7 +381,18 @@
         .player-name-input {
             margin-bottom: 20px;
         }
-        
+        .leaderboard {
+        max-height: 500px;  /* גובה מקסימלי לטבלה */
+        overflow-y: auto;   /* אפשר גלילה אנכית */
+        }
+
+    /* שמירה על כותרות הטבלה קבועות בזמן גלילה */
+        .leaderboard thead {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 1;
+        }
         
         /* קוד CSS לתמיכה במובייל */
         
@@ -1170,6 +1185,22 @@
 ]
 };
 
+    const firebaseConfig = {
+    apiKey: "AIzaSyDiieuJH-zochInK98Yh8oy6WzfSdAQ7yM",
+    authDomain: "eretz-city.firebaseapp.com",
+    projectId: "eretz-city",
+    storageBucket: "eretz-city.firebasestorage.app",
+     messagingSenderId: "405513057899",
+     appId: "1:405513057899:web:a6699e93b76d6c5a0ee32e",
+      measurementId: "G-EFE4NEC7BN"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+// התייחס ל-Firestore
+const db = firebase.firestore();
+const leaderboardCollection = db.collection('leaderboard');
+
     // מצב המשחק המעודכן
     let gameState = {
     level: 1,
@@ -1186,31 +1217,127 @@
     questionsToPassLevel: 5, // כמה שאלות נדרשות כדי לעבור שלב
     isTransitioning: false  // דגל חדש למניעת הגשות חוזרות בזמן מעבר בין שאלות
 };
-    // פונקציות המשחק
-    function saveLeaderboard(leaderboardData) {
-        localStorage.setItem('aretzCityLeaderboard', JSON.stringify(leaderboardData));
-    }
 
-    function getLeaderboard() {
-        const leaderboard = localStorage.getItem('aretzCityLeaderboard');
-        return leaderboard ? JSON.parse(leaderboard) : [];
-    }
 
-    function updateLeaderboard(playerName, score, level) {
-        const leaderboardData = getLeaderboard();
-        leaderboardData.push({ playerName, score, level });
-        leaderboardData.sort((a, b) => b.score - a.score);
-        const topTen = leaderboardData.slice(0, 10);
-        saveLeaderboard(topTen);
-        displayLeaderboard();
+// פונקציה לשמירת תוצאות בענן
+async function saveLeaderboardToCloud(playerName, score, level) {
+    console.log("מנסה לשמור בטבלת השיאים:", { playerName, score, level });
+    try {
+        // הוסף תאריך ושעה לרשומה
+        const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+        
+        // בדוק שהמשתנים עם הערכים הנכונים
+        console.log("נתונים לשמירה:", {
+            playerName: playerName,
+            score: score,
+            level: level,
+            timestamp: timestamp
+        });
+        
+        // שמור בפיירבייס
+        const docRef = await leaderboardCollection.add({
+            playerName: playerName,
+            score: score,
+            level: level,
+            timestamp: timestamp
+        });
+        
+        console.log("התוצאה נשמרה בהצלחה בענן עם מזהה:", docRef.id);
+        return true;
+    } catch (error) {
+        console.error("שגיאה בשמירת התוצאה בענן:", error);
+        // הדפס יותר מידע על השגיאה
+        console.error("פרטי השגיאה:", error.message, error.code);
+        return false;
     }
+}
 
-    function displayLeaderboard() {
-        const leaderboardData = getLeaderboard();
+// פונקציה להשגת טבלת השיאים מהענן
+async function getLeaderboardFromCloud() {
+    console.log("מנסה להשיג נתוני טבלת שיאים מהענן");
+    try {
+        // בדוק שהאובייקט leaderboardCollection מוגדר נכון
+        console.log("האוסף:", leaderboardCollection.path);
+        
+        const snapshot = await leaderboardCollection
+            .orderBy('score', 'desc')
+            .limit(100)
+            .get();
+        
+        console.log("קיבלנו תשובה מהשרת, גודל:", snapshot.size);
+        
+        const leaderboardData = [];
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            console.log("נתוני מסמך:", data);
+            leaderboardData.push(data);
+        });
+        
+        console.log("התקבלו", leaderboardData.length, "רשומות מהענן");
+        return leaderboardData;
+    } catch (error) {
+        console.error("שגיאה בשליפת טבלת השיאים מהענן:", error);
+        console.error("פרטי השגיאה:", error.message, error.code);
+        return [];
+    }
+}
+
+// פונקציה מעודכנת לעדכון טבלת השיאים
+async function updateLeaderboard(playerName, score, level) {
+    console.log("מעדכן טבלת שיאים עבור:", playerName, "עם ניקוד:", score);
+    
+    // ודא שיש ערכים תקינים
+    if (!playerName || playerName.trim() === "") {
+        playerName = "אנונימי";
+    }
+    if (isNaN(score) || score < 0) {
+        console.error("ניקוד לא תקין:", score);
+        score = 0;
+    }
+    if (isNaN(level) || level < 1) {
+        console.error("שלב לא תקין:", level);
+        level = 1;
+    }
+    
+    // שמירה בענן
+    const success = await saveLeaderboardToCloud(playerName, score, level);
+    
+    if (success) {
+        console.log("הניקוד נשמר בהצלחה בטבלה העולמית");
+    } else {
+        console.error("שגיאה בשמירת הניקוד בטבלה העולמית");
+    }
+    
+    // עדכון התצוגה
+    displayLeaderboard();
+}
+
+// פונקציה משודרגת להצגת טבלת השיאים
+async function displayLeaderboard() {
+    const leaderboardBody = document.getElementById('leaderboardBody');
+    const leaderboard = document.getElementById('leaderboard');
+    
+    // הצג הודעת "טוען..."
+    leaderboardBody.innerHTML = '<tr><td colspan="4">טוען נתונים...</td></tr>';
+    leaderboard.style.display = 'block';
+    
+    try {
+        // שליפת נתונים מהענן
+        const leaderboardData = await getLeaderboardFromCloud();
+        
+        // עדכון התצוגה
         leaderboardBody.innerHTML = '';
         
         leaderboardData.forEach((entry, index) => {
             const row = document.createElement('tr');
+            
+            // הדגשת השורה של השחקן הנוכחי
+            if (entry.playerName === gameState.playerName) {
+                row.style.backgroundColor = '#e8f4fd';
+                row.style.fontWeight = 'bold';
+            }
+            
             row.innerHTML = `
                 <td>${index + 1}</td>
                 <td>${entry.playerName}</td>
@@ -1219,9 +1346,10 @@
             `;
             leaderboardBody.appendChild(row);
         });
-        
-        leaderboard.style.display = 'block';
+    } catch (error) {
+        leaderboardBody.innerHTML = '<tr><td colspan="4">שגיאה בטעינת הנתונים. נסה שוב מאוחר יותר.</td></tr>';
     }
+}
 
     function initGame() {
 
