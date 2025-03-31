@@ -565,7 +565,46 @@
         input, textarea {
             font-size: 16px !important;  /* מונע זום אוטומטי באייפון */
         }
-        
+        .leaderboard-button {
+    background-color: #3498db;
+    padding: 10px 25px;
+    font-size: 1.1rem;
+    margin-top: 10px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* מיקום כפתור סגירת טבלה בחלק העליון */
+.close-leaderboard {
+    display: block;
+    margin: 10px auto;
+    padding: 8px 20px;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    position: sticky;
+    top: 10px;
+    z-index: 1000;
+}
+
+/* תיקון למיקום כפתור הסגירה במובייל */
+@media (max-width: 480px) {
+    .close-leaderboard {
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120px;
+    }
+    
+    /* הוספת ריווח בחלק העליון של טבלת השיאים במובייל */
+    #leaderboard.show-mobile {
+        padding-top: 60px;
+    }
+}
     </style>
 </head>
 <body>
@@ -582,6 +621,8 @@
             <input type="text" id="playerNameInput" placeholder="הכנס את שמך כאן" />
         </div>
         <button class="start-button" id="startButton">התחל משחק</button>
+        <button class="leaderboard-button" id="showLeaderboardButton">טבלת שיאים</button>
+
     </div>
 
     <!-- מסך המשחק העיקרי -->
@@ -626,6 +667,7 @@
 
     <!-- טבלת שיאים -->
 <div class="leaderboard" id="leaderboard" style="display: none;">
+    <button class="close-leaderboard" id="closeLeaderboard">סגור טבלה</button>
     <h2>טבלת שיאים</h2>
     <table>
         <thead>
@@ -640,7 +682,7 @@
             <!-- שורות הטבלה יתווספו כאן דינמית -->
         </tbody>
     </table>
-    <button class="close-leaderboard" id="closeLeaderboard">סגור טבלה</button>
+    
 </div>
 
     <!-- חלון סיום המשחק -->
@@ -1964,6 +2006,25 @@ function endGame() {
             gameState.playerName = playerNameInput.value.trim() || 'אנונימי';
             initGame();
         });
+
+        // הוספת מאזין אירועים לכפתור הצגת טבלת שיאים
+    document.getElementById('showLeaderboardButton').addEventListener('click', function() {
+        // שמירת שם השחקן אם הוזן
+        gameState.playerName = playerNameInput.value.trim() || 'אנונימי';
+        
+        // מסתיר את מסך הפתיחה
+        document.getElementById('startScreen').style.display = 'none';
+        
+        // מציג את טבלת השיאים
+        const leaderboard = document.getElementById('leaderboard');
+        if (isMobileDevice()) {
+            leaderboard.classList.add('show-mobile');
+        }
+        leaderboard.style.display = 'block';
+        
+        // טוען את הנתונים לטבלה
+        displayLeaderboard();
+    });
 
         submitAnswer.addEventListener('click', checkAnswer);
         
